@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+.svelte-kit/
+build/
+dist/
+
+# Data aplikasi (SQLite, log run, worktree)
+app_data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Test / cache
+coverage/
+.vitest/
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# State tooling lokal (berisi preferensi/endpoint privat)
+.commandcode/
+.claude/
+.agents/
