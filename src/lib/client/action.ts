@@ -1,4 +1,5 @@
 import { invalidateAll } from '$app/navigation';
+import { deserialize } from '$app/forms';
 
 export interface ActionResult {
 	ok: boolean;
@@ -6,12 +7,11 @@ export interface ActionResult {
 	data?: Record<string, unknown> | null;
 }
 
-interface RawActionResponse {
-	type?: string;
-	data?: Record<string, unknown> | null;
-}
-
-/** Memanggil form action SvelteKit secara programatik dan mengembalikan data mentahnya. */
+/**
+ * Memanggil form action SvelteKit secara programatik dan mengembalikan data mentahnya.
+ * SvelteKit men-serialisasi `data` dengan devalue, jadi respons wajib dibaca lewat
+ * `deserialize` — `response.json()` menghasilkan `data` berupa string, bukan objek.
+ */
 export async function callAction(
 	action: string,
 	fields: Record<string, string>,
@@ -28,11 +28,15 @@ export async function callAction(
 			body,
 			headers: { 'x-sveltekit-action': 'true' }
 		});
-		const result = (await response.json()) as RawActionResponse;
-		if (result?.type === 'failure') {
-			return { ok: false, error: (result.data?.error as string) ?? 'Aksi gagal.', data: result.data ?? null };
+		const result = deserialize(await response.text());
+		if (result.type === 'error') {
+			return { ok: false, error: result.error?.message ?? 'Aksi gagal.' };
 		}
-		return { ok: true, data: result.data ?? null };
+		const data = (result.type === 'redirect' ? null : result.data) as Record<string, unknown> | null;
+		if (result.type === 'failure') {
+			return { ok: false, error: (data?.error as string) ?? 'Aksi gagal.', data };
+		}
+		return { ok: true, data };
 	} catch (cause) {
 		return { ok: false, error: (cause as Error).message };
 	}

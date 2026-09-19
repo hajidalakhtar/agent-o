@@ -28,6 +28,25 @@ export function lockPath(): string {
 	return join(appDataDir(), 'agent-o.lock');
 }
 
+/** Ambang waktu ACP; nilai awal dari ADR 0000. */
+export function acpTimeouts(): {
+	handshakeMs: number;
+	deadAirMs: number;
+	graceMs: number;
+	forceKillMs: number;
+} {
+	const read = (name: string, fallback: number) => {
+		const parsed = Number.parseInt(env(name) ?? '', 10);
+		return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+	};
+	return {
+		handshakeMs: read('AGENT_O_HANDSHAKE_TIMEOUT_MS', 30_000),
+		deadAirMs: read('AGENT_O_DEAD_AIR_TIMEOUT_MS', 120_000),
+		graceMs: read('AGENT_O_CANCEL_GRACE_MS', 5_000),
+		forceKillMs: 2_000
+	};
+}
+
 export function defaultWipLimit(): number {
 	const raw = env('AGENT_O_GLOBAL_WIP');
 	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;

@@ -112,3 +112,29 @@ describe('AGENT-03/AGENT-04 — kelayakan agent', () => {
 		db.close();
 	});
 });
+
+describe('agent ACP bawaan', () => {
+	it('mendaftarkan OpenCode via `opencode acp` saat belum ada', () => {
+		const db = testDb();
+		const agents = new AgentService(db);
+
+		const agent = agents.ensureDefault();
+
+		expect(agent.name).toBe('OpenCode');
+		expect(agent.command).toBe('opencode');
+		expect(agent.args).toEqual(['acp']);
+		db.close();
+	});
+
+	it('idempoten: tidak menggandakan agent bawaan', () => {
+		const db = testDb();
+		const agents = new AgentService(db);
+
+		const first = agents.ensureDefault();
+		const second = agents.ensureDefault();
+
+		expect(second.id).toBe(first.id);
+		expect(agents.list()).toHaveLength(1);
+		db.close();
+	});
+});

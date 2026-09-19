@@ -20,7 +20,9 @@ export const actions: Actions = {
 		if (!path) return fail(400, { error: 'Path folder wajib diisi.', path });
 
 		try {
-			const project = await getApp().projects.add(path);
+			const app = getApp();
+			const defaultAgent = app.agents.ensureDefault();
+			const project = await app.projects.add(path, { defaultAgentId: defaultAgent.id });
 			return { addedId: project.id, addedName: project.name };
 		} catch (error) {
 			return fail(400, { error: (error as Error).message, path });

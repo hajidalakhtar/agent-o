@@ -26,6 +26,8 @@ Prinsip yang dipegang:
 
 Keputusan yang berasal dari pertanyaan terbuka spec dikunci sebagai ADR di [`adr/`](./adr/README.md).
 
+> **Rujukan resmi ACP.** Bila ragu soal nama method, field, capability, atau `stopReason`, jangan tebak dan jangan hardcode dari dokumen ini — baca indeks dokumentasi resminya di <https://agentclientprotocol.com/llms.txt> (daftar seluruh halaman; detail protokol ada di `/protocol/v1/*`, SDK TypeScript di `/libraries/typescript`). Konfirmasi terakhir terhadap kode: `@agentclientprotocol/sdk` v1.4.0, transport JSON-RPC 2.0 di atas stdio dengan pesan yang dipisahkan newline.
+
 ## 2. Arsitektur modular
 
 Setiap modul adalah satu paket mandiri dengan **antarmuka publik tunggal** (`index.ts`). Modul lain hanya boleh mengimpor lewat `index.ts`; isi internal tidak boleh ditembus.

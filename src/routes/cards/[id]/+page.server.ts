@@ -1,33 +1,9 @@
 import { getApp } from '$lib/server/containers.js';
 import { transitions } from '$lib/server/modules/board/index.js';
 import type { CardStatus } from '$lib/server/modules/cards/types.js';
-import { buildBoardContext } from '$lib/server/modules/orchestrator/context.js';
 import { error, fail } from '@sveltejs/kit';
+import { buildThread } from '$lib/shared/thread.js';
 import type { Actions, PageServerLoad } from './$types';
-
-interface ThreadItem {
-	id: string;
-	kind: 'message' | 'system';
-	role?: string;
-	type?: string;
-	content: string;
-	createdAt: number;
-}
-
-function formatEvent(type: string, payload: Record<string, unknown>): string {
-	switch (type) {
-		case 'moved':
-			return `Pindah ${payload.from} → ${payload.to} (${payload.actor})${
-				payload.reason ? ` — ${payload.reason}` : ''
-			}`;
-		case 'card_created':
-			return 'Card dibuat';
-		case 'permission_decision':
-			return `Izin ${payload.decision}: ${payload.category} → ${payload.target ?? ''}`;
-		default:
-			return type;
-	}
-}
 
 export const load: PageServerLoad = ({ params }) => {
 	const app = getApp();
@@ -37,23 +13,7 @@ export const load: PageServerLoad = ({ params }) => {
 
 	const messages = app.cards.listMessages(card.id);
 	const events = app.events.listByCard(card.id);
-
-	const thread: ThreadItem[] = [
-		...messages.map((message) => ({
-			id: message.id,
-			kind: 'message' as const,
-			role: message.role,
-			content: message.content,
-			createdAt: message.createdAt
-		})),
-		...events.map((event) => ({
-			id: event.id,
-			kind: 'system' as const,
-			type: event.type,
-			content: formatEvent(event.type, event.payload),
-			createdAt: event.createdAt
-		}))
-	].sort((a, b) => a.createdAt - b.createdAt);
+	const thread = buildThread(messages, events);
 
 	const worktree =
 		app.db.get<{
@@ -82,6 +42,7 @@ export const load: PageServerLoad = ({ params }) => {
 			usable: app.agents.usable(agent.id).usable
 		})),
 		effectiveAgentId: card.agentId ?? project.defaultAgentId,
+		running: app.orchestrator.runs.isRunning(card.id),
 		worktree,
 		permissionAudit: permissionEvents.map((event) => ({
 			id: event.id,
@@ -106,6 +67,15 @@ export const actions: Actions = {
 		if (!content) return fail(400, { error: 'Pesan tidak boleh kosong.' });
 
 		app.cards.addMessage(card.id, 'user', content);
+
+		// BOARD: menjawab card `blocked` melanjutkan run (mengambil slot lagi, bisa mengantre).
+		if (card.status === 'blocked') {
+			try {
+				await app.orchestrator.transition(card, { to: 'in_progress' });
+			} catch (cause) {
+				return fail(400, { error: (cause as Error).message });
+			}
+		}
 		return { ok: true };
 	},
 
@@ -141,13 +111,14 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const to = String(form.get('to') ?? '') as CardStatus | 'deleted';
-		const feedback = form.get('feedback') ? String(form.get('feedback')) : undefined;
-		const confirmed = form.get('confirmed') === 'true';
+		const feedbackRaw = form.get('feedback');
 
 		try {
-			const context = await buildBoardContext(app, card, { feedback, confirmed });
-			app.board.transition({ card, to, actor: 'user', reason: 'manual', context });
-			if (to !== 'in_progress') app.scheduler.release(card.id);
+			await app.orchestrator.transition(card, {
+				to,
+				feedback: feedbackRaw ? String(feedbackRaw) : undefined,
+				confirmed: form.get('confirmed') === 'true'
+			});
 			return { ok: true };
 		} catch (cause) {
 			return fail(400, { error: (cause as Error).message });

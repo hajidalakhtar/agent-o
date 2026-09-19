@@ -70,6 +70,11 @@ export class ProjectRepository {
 		this.db.run('UPDATE project SET available = ? WHERE id = ?', [available ? 1 : 0, id]);
 	}
 
+	/** Isi default_agent_id yang masih kosong tanpa menimpa pilihan yang sudah ada. */
+	setDefaultAgentForUnset(agentId: string): void {
+		this.db.run('UPDATE project SET default_agent_id = ? WHERE default_agent_id IS NULL', [agentId]);
+	}
+
 	updateDefaults(
 		id: string,
 		changes: { name?: string; defaultBranch?: string; wipLimit?: number; defaultAgentId?: string | null }

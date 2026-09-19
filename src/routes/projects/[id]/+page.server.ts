@@ -1,7 +1,6 @@
 import { getApp } from '$lib/server/containers.js';
 import { transitions } from '$lib/server/modules/board/index.js';
 import type { CardStatus } from '$lib/server/modules/cards/types.js';
-import { buildBoardContext } from '$lib/server/modules/orchestrator/context.js';
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -50,6 +49,7 @@ export const load: PageServerLoad = ({ params }) => {
 							? (agents.find((agent) => agent.id === effectiveAgentId)?.name ?? 'agent tidak dikenal')
 							: null,
 						queued: app.scheduler.position(card.id),
+						live: app.orchestrator.runs.isRunning(card.id),
 						allowed: transitions
 							.filter((transition) => transition.from === card.status)
 							.map((transition) => ({ to: transition.to, trigger: transition.trigger }))
@@ -93,22 +93,58 @@ export const actions: Actions = {
 		}
 	},
 
+	update: async ({ request }) => {
+		const app = getApp();
+		const form = await request.formData();
+		const cardId = String(form.get('cardId') ?? '');
+		const title = String(form.get('title') ?? '');
+		const instruction = String(form.get('instruction') ?? '');
+		try {
+			app.cards.update(cardId, { title, instruction });
+			return { ok: true };
+		} catch (cause) {
+			return fail(400, { error: (cause as Error).message });
+		}
+	},
+
+	reply: async ({ request }) => {
+		const app = getApp();
+		const form = await request.formData();
+		const cardId = String(form.get('cardId') ?? '');
+		const content = String(form.get('content') ?? '').trim();
+		if (!content) return fail(400, { error: 'Pesan tidak boleh kosong.' });
+
+		const card = app.cards.get(cardId);
+		if (!card) return fail(404, { error: 'Card tidak ditemukan.' });
+
+		try {
+			app.cards.addMessage(card.id, 'user', content);
+			// BOARD: menjawab card `blocked` melanjutkan run (bisa mengantre slot WIP).
+			if (card.status === 'blocked') {
+				await app.orchestrator.transition(card, { to: 'in_progress' });
+			}
+			return { ok: true };
+		} catch (cause) {
+			return fail(400, { error: (cause as Error).message });
+		}
+	},
+
 	transition: async ({ request }) => {
 		const app = getApp();
 		const form = await request.formData();
 		const cardId = String(form.get('cardId') ?? '');
 		const to = String(form.get('to') ?? '') as CardStatus | 'deleted';
 		const feedbackRaw = form.get('feedback');
-		const feedback = feedbackRaw ? String(feedbackRaw) : undefined;
-		const confirmed = form.get('confirmed') === 'true';
 
 		const card = app.cards.get(cardId);
 		if (!card) return fail(404, { error: 'Card tidak ditemukan.' });
 
 		try {
-			const context = await buildBoardContext(app, card, { feedback, confirmed });
-			app.board.transition({ card, to, actor: 'user', reason: 'manual', context });
-			if (to !== 'in_progress') app.scheduler.release(cardId);
+			await app.orchestrator.transition(card, {
+				to,
+				feedback: feedbackRaw ? String(feedbackRaw) : undefined,
+				confirmed: form.get('confirmed') === 'true'
+			});
 			return { ok: true };
 		} catch (cause) {
 			return fail(400, { error: (cause as Error).message });

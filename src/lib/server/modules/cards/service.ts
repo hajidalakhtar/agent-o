@@ -89,6 +89,22 @@ export class CardService {
 		return this.repository.listRuns(cardId);
 	}
 
+	getRun(id: string): Run | undefined {
+		return this.repository.findRun(id);
+	}
+
+	createRun(run: Run): Run {
+		return this.repository.insertRun(run);
+	}
+
+	updateRun(
+		id: string,
+		changes: Partial<Pick<Run, 'sessionId' | 'worktreeId' | 'status' | 'stopReason' | 'reason' | 'endedAt'>>
+	): Run | undefined {
+		this.repository.updateRun(id, changes);
+		return this.repository.findRun(id);
+	}
+
 	nextAttemptNo(cardId: string): number {
 		return this.repository.nextAttemptNo(cardId);
 	}

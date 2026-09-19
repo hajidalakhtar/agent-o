@@ -39,7 +39,10 @@ export class ProjectService {
 	}
 
 	/** PROJECT-01/PROJECT-02: validasi lalu simpan; gagal berarti tidak masuk daftar. */
-	async add(inputPath: string, defaults?: { wipLimit?: number }): Promise<Project> {
+	async add(
+		inputPath: string,
+		defaults?: { wipLimit?: number; defaultAgentId?: string | null }
+	): Promise<Project> {
 		const validation = await this.validate(inputPath);
 		if (!validation.ok) {
 			throw new ProjectError(validation.message);
@@ -53,13 +56,18 @@ export class ProjectService {
 			name: validation.name,
 			rootPath: validation.rootPath,
 			defaultBranch: validation.defaultBranch,
-			defaultAgentId: null,
+			defaultAgentId: defaults?.defaultAgentId ?? null,
 			wipLimit: defaults?.wipLimit ?? configDefaultWipLimit(),
 			permissionPolicyId: null,
 			available: true,
 			createdAt: Date.now()
 		};
 		return this.repository.insert(project);
+	}
+
+	/** Backfill: project tanpa default agent memakai agent bawaan. */
+	adoptDefaultAgent(agentId: string): void {
+		this.repository.setDefaultAgentForUnset(agentId);
 	}
 
 	rename(id: string, name: string): Project {

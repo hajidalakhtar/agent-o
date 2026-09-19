@@ -16,6 +16,11 @@ export interface BoardContextDeps {
 export interface BoardContextInput {
 	feedback?: string;
 	confirmed?: boolean;
+	/**
+	 * Hasil akuisisi slot dari scheduler. Bila diisi, nilai ini yang dipakai —
+	 * pemanggil sudah memutuskan status slot sebelum guard dievaluasi.
+	 */
+	slot?: { available: boolean; reason?: string };
 }
 
 /**
@@ -51,9 +56,11 @@ export async function buildBoardContext(
 		card,
 		project,
 		projectDirtyFiles,
-		slot: running
-			? { available: true }
-			: { available: false, reason: 'Card ini belum memegang slot WIP.' },
+		slot:
+			input.slot ??
+			(running
+				? { available: true }
+				: { available: false, reason: 'Card ini belum memegang slot WIP.' }),
 		agent: {
 			determined: Boolean(effectiveAgentId),
 			usable: usability.usable,

@@ -5,7 +5,9 @@ export default defineConfig({
 	test: {
 		environment: 'node',
 		include: ['src/**/*.{test,spec}.ts', 'tests/**/*.{test,spec}.ts'],
-		globals: false
+		globals: false,
+		// Test yang membuat repo/worktree git nyata butuh ruang lebih saat file berjalan paralel.
+		testTimeout: 30_000
 	},
 	resolve: {
 		alias: {

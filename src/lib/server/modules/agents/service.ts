@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../persistence/db.js';
+import { DEFAULT_ACP_AGENT } from './defaults.js';
 import { AgentRepository } from './repository.js';
 import type { AgentCapabilities, AgentHealth, AgentRegistration, NewAgent } from './types.js';
 
@@ -56,6 +57,11 @@ export class AgentService {
 			createdAt: Date.now()
 		};
 		return this.repository.insert(agent);
+	}
+
+	/** Mendaftarkan agent ACP bawaan bila belum ada, lalu mengembalikannya (idempoten). */
+	ensureDefault(): AgentRegistration {
+		return this.repository.findByName(DEFAULT_ACP_AGENT.name) ?? this.create(DEFAULT_ACP_AGENT);
 	}
 
 	/** AGENT-05: nonaktifkan tanpa menghapus riwayat run. */

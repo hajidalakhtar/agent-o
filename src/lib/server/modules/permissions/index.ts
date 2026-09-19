@@ -1,4 +1,6 @@
 export { PermissionService, PermissionError } from './service.js';
+export { PermissionGate, PermissionDenied } from './gate.js';
+export type { GateContext } from './gate.js';
 export {
 	resolveDecision,
 	classifyCommand,
